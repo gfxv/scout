@@ -24,11 +24,7 @@ func (i *Indexer) IndexFile(path string) error {
 	}
 	tokenizer := NewTokenizer(bytes.Runes(rawFile))
 
-	// check if file (path) was already indexed
-	// create new entry if not
-	if _, ok := i.documentIndex[path]; !ok {
-		i.documentIndex[path] = make(TermInfo)
-	}
+	i.documentIndex[path] = make(TermInfo)
 
 	for {
 		token, ok := tokenizer.NextToken()
