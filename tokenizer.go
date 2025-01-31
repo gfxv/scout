@@ -69,7 +69,7 @@ func (t *Tokenizer) stem(token string) string {
 	// last boolean argument reduces all the 'useless' words from the language
 	// like which, and, why, with, but, etc. (acutally doesn't really matter,
 	// because tf-idf handles these words quite good).
-	// error may happen only if the language provided is unknown for the library
-	stemmed, _ := snowball.Stem(token, "english", true)
+	// error may happen only if the language is unknown for the library
+	stemmed, _ := snowball.Stem(token, "english", true) // TODO: support different languages
 	return stemmed
 }
