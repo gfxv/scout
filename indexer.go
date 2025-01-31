@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 )
 
 type TermFreq map[string]uint
@@ -53,6 +54,11 @@ func (i *Indexer) SearchQuery(query string) []SearchQueryResult {
 		}
 		result = append(result, SearchQueryResult{path, rank})
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].rank > result[j].rank
+	})
+
 	return result
 }
 
