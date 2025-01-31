@@ -3,32 +3,74 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"os"
 )
 
 type TermFreq map[string]uint
-type DocIndex map[string]TermFreq
+type DocInfo struct {
+	Terms      TermFreq
+	TotalTerms uint
+}
+type DocIndex map[string]DocInfo
+
+type SearchQueryResult struct {
+	path string
+	rank float32
+}
 
 type Indexer struct {
 	documentIndex DocIndex
-	globalInfo    TermFreq
+	docFrequency  TermFreq
 }
 
 func NewIndexer() *Indexer {
 	return &Indexer{
 		documentIndex: make(DocIndex),
-		globalInfo:    make(TermFreq),
+		docFrequency:  make(TermFreq),
 	}
 }
 
+func (i *Indexer) SearchQuery(query string) []SearchQueryResult {
+	result := make([]SearchQueryResult, 0)
+	tokenizer := NewTokenizer([]rune(query))
+	tokens := make([]string, 0)
+
+	for {
+		token, ok := tokenizer.NextToken()
+		if !ok {
+			break
+		}
+		tokens = append(tokens, token)
+	}
+
+	for path, docInfo := range i.documentIndex {
+		rank := float32(0)
+		for _, token := range tokens {
+			tf := i.tf(token, docInfo)
+			idf := i.idf(token)
+			rank += tf * idf
+		}
+		result = append(result, SearchQueryResult{path, rank})
+	}
+	return result
+}
+
 func (i *Indexer) IndexFile(path string) error {
-	rawFile, err := os.ReadFile(sampleFile)
+	if _, ok := i.documentIndex[path]; ok {
+		i.RemoveFile(path)
+	}
+
+	rawFile, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("can't read file %s, err: %w\n", rawFile, err)
+		return fmt.Errorf("can't read file %s, err: %w", path, err)
 	}
 	tokenizer := NewTokenizer(bytes.Runes(rawFile))
 
-	i.documentIndex[path] = make(TermFreq)
+	docInfo := DocInfo{
+		Terms:      make(TermFreq),
+		TotalTerms: 0,
+	}
 
 	for {
 		token, ok := tokenizer.NextToken()
@@ -36,47 +78,58 @@ func (i *Indexer) IndexFile(path string) error {
 			break
 		}
 
-		// add token to global frequencies table
-		globalFreq, ok := i.globalInfo[token]
-		if ok {
-			i.globalInfo[token] = globalFreq + 1
-		} else {
-			i.globalInfo[token] = 1
-		}
+		docInfo.Terms[token]++
+		docInfo.TotalTerms++
 
-		// add token to document frequencies table
-		terms := i.documentIndex[path]
-		freq, ok := terms[token]
-		if ok {
-			terms[token] = freq + 1
-		} else {
-			terms[token] = 1
+		if docInfo.Terms[token] == 1 {
+			i.docFrequency[token]++
 		}
 	}
+
+	i.documentIndex[path] = docInfo
 	return nil
 }
 
 func (i *Indexer) RemoveFile(path string) error {
-	terms, ok := i.documentIndex[path]
+	docInfo, ok := i.documentIndex[path]
 	if !ok {
 		return fmt.Errorf("path %s not found", path)
 	}
-	for term, freq := range terms {
-		globalTermFreq, ok := i.globalInfo[term]
-		if !ok {
-			continue
+
+	for term := range docInfo.Terms {
+		if i.docFrequency[term] > 0 {
+			i.docFrequency[term]--
 		}
-		i.globalInfo[term] = globalTermFreq - freq
+		if i.docFrequency[term] == 0 {
+			delete(i.docFrequency, term)
+		}
 	}
+
 	delete(i.documentIndex, path)
 	return nil
 }
 
-// helper function to print term frequencies
+func (i *Indexer) tf(token string, docInfo DocInfo) float32 {
+	if docInfo.TotalTerms == 0 {
+		return 0
+	}
+	freq := docInfo.Terms[token]
+	return float32(freq) / float32(docInfo.TotalTerms)
+}
+
+func (i *Indexer) idf(token string) float32 {
+	totalDocs := len(i.documentIndex)
+	if totalDocs == 0 {
+		totalDocs = 1
+	}
+	docsWithTerm := i.docFrequency[token]
+	return float32(math.Log(float64(totalDocs+1) / float64(docsWithTerm+1)))
+}
+
 func (i *Indexer) prettyPrint() {
-	for path, termInfo := range i.documentIndex {
-		fmt.Println(path)
-		for term, freq := range termInfo {
+	for path, docInfo := range i.documentIndex {
+		fmt.Printf("%s (%d total terms)\n", path, docInfo.TotalTerms)
+		for term, freq := range docInfo.Terms {
 			fmt.Printf("  %s -> %d\n", term, freq)
 		}
 	}
