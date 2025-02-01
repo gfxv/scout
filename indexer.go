@@ -20,6 +20,14 @@ type SearchQueryResult struct {
 	rank float32
 }
 
+func (s *SearchQueryResult) Path() string {
+	return s.path
+}
+
+func (s *SearchQueryResult) Rank() float32 {
+	return s.rank
+}
+
 type Indexer struct {
 	documentIndex DocIndex
 	docFrequency  TermFreq
