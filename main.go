@@ -32,8 +32,12 @@ func main() {
 
 	app.Get("/", adaptor.HTTPHandler(templ.Handler(IndexPage())))
 	app.Get("/search", func(c *fiber.Ctx) error {
-		fmt.Println("Query: ", c.Query("q"))
-		return c.SendStatus(200)
+		query := c.Query("q")
+		fmt.Println("Received query:", query)
+		results := indexer.SearchQuery(query)
+
+		handler := adaptor.HTTPHandler(templ.Handler(searchResults(results)))
+		return handler(c)
 	})
 
 	if err = app.Listen(":6969"); err != nil {
