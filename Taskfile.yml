@@ -1,0 +1,19 @@
+version: "3"
+
+vars:
+  entry: .
+  bin: scout
+  views: .
+
+tasks:
+  build:
+    silent: true
+    cmds:
+      - templ generate {{.views}} 
+      - go build -o {{.bin}} {{.entry}} 
+
+  clean:
+    silent: true
+    cmds:
+      - rm -r {{.views}}/*_templ.go
+      - rm {{.bin}}
