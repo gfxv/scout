@@ -1,0 +1,63 @@
+package main
+
+import "fmt"
+
+templ IndexPage() {
+	<html lang="en">
+	<head>
+		<title>Search Engine</title>
+		<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+		<script src="https://cdn.tailwindcss.com"></script>
+	</head>
+	<body class="bg-gray-50">
+		<div class="max-w-2xl mx-auto p-4">
+			<div class="bg-white p-6 rounded-lg shadow-md mb-6">
+				<form 
+					class="flex gap-2" 
+					hx-get="/search" 
+					hx-target="#results" 
+					hx-trigger="click from:#search-button"
+				>
+					<input 
+						type="text" 
+						name="q" 
+						placeholder="Enter search query..." 
+						class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+					/>
+					<button 
+						id="search-button" 
+						type="button" 
+						class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+					>
+						Search
+					</button>
+				</form>
+			</div>
+
+			<!-- Results Container -->
+			<div id="results" class="space-y-3">
+				<!-- Results will be inserted here -->
+			</div>
+		</div>
+	</body>
+	</html>
+}
+
+templ searchResults(results []SearchQueryResult) {
+	<div class="space-y-3">
+		if len(results) == 0 {
+			<div class="p-4 bg-white rounded-lg shadow-md text-gray-600">
+				No results found
+			</div>
+		} else {
+			for _, result := range results {
+				<div class="p-4 bg-white rounded-lg shadow-md">
+					<div class="font-medium text-gray-900">{ result.path }</div>
+					<div class="text-sm text-gray-600">
+						Score: <span class="font-mono">{ fmt.Sprintf("%.4f", result.rank) }</span>
+					</div>
+				</div>
+			}
+		}
+	</div>
+}
