@@ -5,8 +5,13 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"sort"
+	"sync"
 )
+
+const pathsBufferSize = 200
+const numIndexWorkers = 5
 
 type TermFreq map[string]uint
 type DocInfo struct {
@@ -29,12 +34,16 @@ func (s *SearchQueryResult) Rank() float32 {
 }
 
 type Indexer struct {
+	diMu          *sync.Mutex
+	dfMu          *sync.Mutex
 	documentIndex DocIndex
 	docFrequency  TermFreq
 }
 
 func NewIndexer() *Indexer {
 	return &Indexer{
+		diMu:          &sync.Mutex{},
+		dfMu:          &sync.Mutex{},
 		documentIndex: make(DocIndex),
 		docFrequency:  make(TermFreq),
 	}
@@ -70,15 +79,46 @@ func (i *Indexer) SearchQuery(query string) []SearchQueryResult {
 	return result
 }
 
+func (i *Indexer) IndexDir(path string) error {
+	filesChan := make(chan string, pathsBufferSize)
+	go func() {
+		if err := collectFiles(path, filesChan); err != nil {
+			fmt.Printf("error occurred during collecting files, err: %w", err)
+		}
+	}()
+
+	wg := sync.WaitGroup{}
+	for w := 0; w < numIndexWorkers; w++ {
+		wg.Add(1)
+		go func(i *Indexer) {
+			i.indexWorker(&wg, filesChan)
+		}(i)
+	}
+	wg.Wait()
+
+	return nil
+}
+
 func (i *Indexer) IndexFile(path string) error {
+	// TODO: support other file types (pdf, html, doc?, ...)
+	if filepath.Ext(path) != ".md" {
+		fmt.Printf("Unknown file type %s\n", path)
+		return nil
+	}
+
+	fmt.Printf("Indexing %s...\n", path)
+
+	i.diMu.Lock()
 	if _, ok := i.documentIndex[path]; ok {
 		i.RemoveFile(path)
 	}
+	i.diMu.Unlock()
 
 	rawFile, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("can't read file %s, err: %w", path, err)
 	}
+
 	tokenizer := NewTokenizer(bytes.Runes(rawFile))
 
 	docInfo := DocInfo{
@@ -96,11 +136,15 @@ func (i *Indexer) IndexFile(path string) error {
 		docInfo.TotalTerms++
 
 		if docInfo.Terms[token] == 1 {
+			i.dfMu.Lock()
 			i.docFrequency[token]++
+			i.dfMu.Unlock()
 		}
 	}
 
+	i.diMu.Lock()
 	i.documentIndex[path] = docInfo
+	i.diMu.Unlock()
 	return nil
 }
 
@@ -120,6 +164,36 @@ func (i *Indexer) RemoveFile(path string) error {
 	}
 
 	delete(i.documentIndex, path)
+	return nil
+}
+
+func (i *Indexer) indexWorker(wg *sync.WaitGroup, paths <-chan string) {
+	defer wg.Done()
+	for path := range paths {
+		if err := i.IndexFile(path); err != nil {
+			// TODO: write errors to errChan
+			fmt.Println(err)
+		}
+	}
+}
+
+func collectFiles(root string, out chan<- string) error {
+	defer close(out)
+
+	walkFunc := func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("failed to collect file %s, err: %w", path, err)
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		out <- path
+		return nil
+	}
+	if err := filepath.Walk(root, walkFunc); err != nil {
+		return err
+	}
 	return nil
 }
 
