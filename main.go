@@ -2,8 +2,7 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	"time"
 
 	"github.com/a-h/templ"
 	"github.com/gofiber/fiber/v2"
@@ -15,18 +14,13 @@ const sampleFile = "files/scylla-readme.md"
 
 func main() {
 	indexer := NewIndexer()
-	files, err := os.ReadDir(dirPath)
-	if err != nil {
-		fmt.Println(err)
-	}
 
-	for _, file := range files {
-		path := filepath.Join(dirPath, file.Name())
-		fmt.Printf("Indexing %s...\n", path)
-		if err := indexer.IndexFile(path); err != nil {
-			fmt.Println(err)
-		}
+	start := time.Now()
+	if err := indexer.IndexDir(dirPath); err != nil {
+		fmt.Println(err)
+		return
 	}
+	fmt.Printf("Indexed in: %s", time.Since(start))
 
 	app := fiber.New()
 
@@ -40,8 +34,7 @@ func main() {
 		return handler(c)
 	})
 
-	if err = app.Listen(":6969"); err != nil {
+	if err := app.Listen(":6969"); err != nil {
 		fmt.Println(err)
 	}
-
 }
