@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/ledongthuc/pdf"
+	"golang.org/x/net/html"
 )
 
 func plainTextReader(path string) ([]rune, error) {
@@ -43,10 +44,6 @@ func pdfReader(path string) ([]rune, error) {
 	return content, nil
 }
 
-type TextNode struct {
-	Content string `xml:",chardata"`
-}
-
 func xmlReader(path string) ([]rune, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -77,7 +74,29 @@ func xmlReader(path string) ([]rune, error) {
 
 }
 
-// TODO: implement...
 func htmlReader(path string) ([]rune, error) {
-	return nil, nil
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s, err: %w", path, err)
+	}
+	defer file.Close()
+
+	doc, err := html.Parse(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse html file %s, err: %w", path, err)
+	}
+
+	content := make([]rune, 0)
+	var extractText func(*html.Node)
+	extractText = func(n *html.Node) {
+		if n.Type == html.TextNode {
+			content = append(content, []rune(n.Data)...)
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			extractText(c)
+		}
+	}
+	extractText(doc)
+
+	return content, nil
 }

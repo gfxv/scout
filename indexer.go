@@ -113,6 +113,8 @@ func (i *Indexer) IndexFile(path string) error {
 		content, err = xmlReader(path)
 	case ".pdf":
 		content, err = pdfReader(path)
+	case ".html":
+		content, err = htmlReader(path)
 	default:
 		fmt.Printf("Unknown file type %s\n", path)
 		return nil
