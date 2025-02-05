@@ -101,16 +101,20 @@ func (i *Indexer) IndexDir(path string) error {
 func (i *Indexer) IndexFile(path string) error {
 	fmt.Printf("Indexing %s...\n", path)
 
-	// TODO: support other file types (pdf, html, doc?, ...)
+	// TODO:
+	// - support other file types (pdf, html, doc?, ...)
+	// - may be change switch-case to map ?
 	var content []rune
 	var err error
 	switch filepath.Ext(path) {
 	case ".md", ".txt":
 		content, err = plainTextReader(path)
+	case ".xml", ".xhtml":
+		content, err = xmlReader(path)
 	case ".pdf":
 		content, err = pdfReader(path)
 	default:
-		fmt.Printf("Unknown file type %s\n")
+		fmt.Printf("Unknown file type %s\n", path)
 		return nil
 	}
 

@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/ledongthuc/pdf"
@@ -39,6 +41,40 @@ func pdfReader(path string) ([]rune, error) {
 		content = append(content, []rune(result)...)
 	}
 	return content, nil
+}
+
+type TextNode struct {
+	Content string `xml:",chardata"`
+}
+
+func xmlReader(path string) ([]rune, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file %s, err: %w", path, err)
+	}
+	defer file.Close()
+
+	content := make([]rune, 0)
+	decoder := xml.NewDecoder(file)
+
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode token from file %s, err: %w", path, err)
+		}
+
+		switch t := token.(type) {
+		case xml.CharData:
+			content = append(content, bytes.Runes(t)...)
+		default:
+			// ignore other tokens (e.g., start and end tags)
+		}
+	}
+	return content, nil
+
 }
 
 // TODO: implement...
