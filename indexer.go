@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"math"
 	"os"
@@ -100,13 +99,24 @@ func (i *Indexer) IndexDir(path string) error {
 }
 
 func (i *Indexer) IndexFile(path string) error {
+	fmt.Printf("Indexing %s...\n", path)
+
 	// TODO: support other file types (pdf, html, doc?, ...)
-	if filepath.Ext(path) != ".md" {
-		fmt.Printf("Unknown file type %s\n", path)
+	var content []rune
+	var err error
+	switch filepath.Ext(path) {
+	case ".md", ".txt":
+		content, err = plainTextReader(path)
+	case ".pdf":
+		content, err = pdfReader(path)
+	default:
+		fmt.Printf("Unknown file type %s\n")
 		return nil
 	}
 
-	fmt.Printf("Indexing %s...\n", path)
+	if err != nil {
+		return err
+	}
 
 	i.diMu.Lock()
 	if _, ok := i.documentIndex[path]; ok {
@@ -114,12 +124,7 @@ func (i *Indexer) IndexFile(path string) error {
 	}
 	i.diMu.Unlock()
 
-	rawFile, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("can't read file %s, err: %w", path, err)
-	}
-
-	tokenizer := NewTokenizer(bytes.Runes(rawFile))
+	tokenizer := NewTokenizer(content)
 
 	docInfo := DocInfo{
 		Terms:      make(TermFreq),
