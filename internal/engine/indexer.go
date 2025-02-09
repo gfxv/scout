@@ -1,4 +1,4 @@
-package main
+package engine
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 )
 
 const pathsBufferSize = 200
-const numIndexWorkers = 5
+const numIndexWorkers = 10
 
 type TermFreq map[string]uint
 type DocInfo struct {
