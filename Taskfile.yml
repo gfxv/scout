@@ -1,9 +1,9 @@
 version: "3"
 
 vars:
-  entry: .
+  entry: ./cmd/scout/main.go
   bin: scout
-  views: .
+  views: ./views/
 
 tasks:
   build:
