@@ -4,7 +4,8 @@
 > **Scout** is currently under development, so bugs and breaking changes can happen.
 > I highly appreciate any feedback!
 
-**Scout** is a ... 
+**Scout** is a lightweight and easy to use local search engine written in Go, that 
+allows to index and search across user-provided documents using the TF-IDF algorithm.
 
 ## Building
 To build **Scout** from source:
