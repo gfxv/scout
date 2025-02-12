@@ -6,6 +6,9 @@ vars:
   views: ./views/
 
 tasks:
+  default:
+    deps: [build]
+
   build:
     silent: true
     cmds:
