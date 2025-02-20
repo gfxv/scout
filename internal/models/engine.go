@@ -14,6 +14,13 @@ type SearchQueryResult struct {
 	rank float32
 }
 
+func NewSearchQueryResult(path string, rank float32) SearchQueryResult {
+	return SearchQueryResult{
+		path: path,
+		rank: rank,
+	}
+}
+
 func (s *SearchQueryResult) Path() string {
 	return s.path
 }

@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"github.com/gfxv/scout/internal/database"
@@ -26,7 +27,6 @@ type Indexer struct {
 }
 
 func NewIndexer() *Indexer {
-
 	db, err := database.NewDatabase("meta.db")
 	if err != nil {
 		panic(err)
@@ -45,11 +45,49 @@ func NewIndexer() *Indexer {
 }
 
 func (i *Indexer) SearchQuery(query string) []models.SearchQueryResult {
+	result := make([]models.SearchQueryResult, 0)
+	tokenizer := NewTokenizer([]rune(query))
+	tokens := make([]string, 0)
 
-	return nil
+	for {
+		token, ok := tokenizer.NextToken()
+		if !ok {
+			break
+		}
+		tokens = append(tokens, token)
+	}
+
+	for path, docInfo := range i.documentIndex {
+		rank := float32(0)
+		for _, token := range tokens {
+			tf := i.tf(token, docInfo)
+			idf := i.idf(token)
+			rank += tf * idf
+		}
+		result = append(result, models.NewSearchQueryResult(path, rank))
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Rank() > result[j].Rank()
+	})
+
+	return result
 }
 
 func (i *Indexer) Load() error {
+	docIndex, docFreq, err := i.db.LoadIndexData()
+	if err != nil {
+		return err
+	}
+
+	i.diMu.Lock()
+	i.documentIndex = docIndex
+	i.diMu.Unlock()
+
+	i.dfMu.Lock()
+	i.docFrequency = docFreq
+	i.dfMu.Unlock()
+
 	return nil
 }
 
@@ -207,7 +245,7 @@ func tokenizeQuery(query string) []string {
 	return tokens
 }
 
-func (i *Indexer) prettyPrint() {
+func (i *Indexer) PrettyPrint() {
 	for path, docInfo := range i.documentIndex {
 		fmt.Printf("%s (%d total terms)\n", path, docInfo.TotalTerms)
 		for term, freq := range docInfo.Terms {
