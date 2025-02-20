@@ -83,18 +83,37 @@ func (d *Database) AddDocuments(docs []DocumentData) error {
 }
 
 func (d *Database) LoadIndexData() (models.DocIndex, models.TermFreq, error) {
-	docIndex := make(models.DocIndex)
-	docFrequency := make(models.TermFreq)
 
 	// load all documents with their associated terms
-	var documents []models.Document
-	if err := d.db.Preload("Terms").Find(&documents).Error; err != nil {
+	docIndex, docIDToPath, termIDToText, err := d.loadDocuments()
+	if err != nil {
 		return nil, nil, err
 	}
 
-	// build maps for quick lookups
+	// loading DocumentTerm entries to update term frequencies
+	if err := d.loadTermFrequencies(docIndex, docIDToPath, termIDToText); err != nil {
+		return nil, nil, err
+	}
+
+	// loading all terms to populate docFrequency
+	docFrequency, err := d.loadDocFrequency()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return docIndex, docFrequency, nil
+}
+
+func (d *Database) loadDocuments() (models.DocIndex, map[int]string, map[int]string, error) {
+	docIndex := make(models.DocIndex)
 	docIDToPath := make(map[int]string)
 	termIDToText := make(map[int]string)
+
+	var documents []models.Document
+	if err := d.db.Preload("Terms").Find(&documents).Error; err != nil {
+		return nil, nil, nil, err
+	}
+
 	for _, doc := range documents {
 		docIDToPath[doc.ID] = doc.Path
 		docIndex[doc.Path] = models.DocInfo{
@@ -107,35 +126,34 @@ func (d *Database) LoadIndexData() (models.DocIndex, models.TermFreq, error) {
 		}
 	}
 
-	// loading DocumentTerm entries to update term frequencies
+	return docIndex, docIDToPath, termIDToText, nil
+}
+
+func (d *Database) loadTermFrequencies(
+	docIndex models.DocIndex,
+	docIDToPath map[int]string,
+	termIDToText map[int]string,
+) error {
 	var documentTerms []models.DocumentTerm
 	if err := d.db.Find(&documentTerms).Error; err != nil {
-		return nil, nil, err
+		return err
 	}
+
 	for _, dt := range documentTerms {
 		path, ok := docIDToPath[dt.DocumentID]
 		if !ok {
-			continue // skip if document not found (shouldn't happen)
+			continue
 		}
 		termText, ok := termIDToText[dt.TermID]
 		if !ok {
-			continue // skip if term not found (shouldn't happen)
+			continue
 		}
 		docInfo := docIndex[path]
 		docInfo.Terms[termText] = dt.Count
 		docIndex[path] = docInfo
 	}
 
-	// loading all terms to populate docFrequency
-	var terms []models.Term
-	if err := d.db.Find(&terms).Error; err != nil {
-		return nil, nil, err
-	}
-	for _, term := range terms {
-		docFrequency[term.Text] = term.DocCount
-	}
-
-	return docIndex, docFrequency, nil
+	return nil
 }
 
 func (d *Database) processDocuments(docs []DocumentData) ([]models.Document, []map[string]uint, map[string]uint, error) {
@@ -158,6 +176,21 @@ func (d *Database) processDocuments(docs []DocumentData) ([]models.Document, []m
 	}
 
 	return documents, termFreqs, uniqueTerms, nil
+}
+
+func (d *Database) loadDocFrequency() (models.TermFreq, error) {
+	docFrequency := make(models.TermFreq)
+
+	var terms []models.Term
+	if err := d.db.Find(&terms).Error; err != nil {
+		return nil, err
+	}
+
+	for _, term := range terms {
+		docFrequency[term.Text] = term.DocCount
+	}
+
+	return docFrequency, nil
 }
 
 func (d *Database) insertDocuments(tx *gorm.DB, documents []models.Document) error {
