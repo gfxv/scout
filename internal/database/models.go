@@ -1,19 +1,20 @@
-package main
+package database
 
 type Document struct {
-	ID    int
-	Path  string  `gorm:"unique"`
-	Terms []*Term `gorm:"many2many:document_indexes;"`
+	ID         int    `gorm:"primaryKey"`
+	Path       string `gorm:"unique;index"`
+	TotalTerms uint
+	Terms      []*Term `gorm:"many2many:document_terms;"`
 }
 
 type Term struct {
-	ID   int
-	Term string `gorm:"unique"`
-	Freq float32
+	ID       int    `gorm:"primaryKey"`
+	Text     string `gorm:"unique;index;collate:NOCASE"`
+	DocCount uint
 }
 
-type DocumentIndex struct {
-	TermID     int `gorm:"primaryKey"`
+type DocumentTerm struct {
 	DocumentID int `gorm:"primaryKey"`
-	Freq       float32
+	TermID     int `gorm:"primaryKey"`
+	Count      uint
 }

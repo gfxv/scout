@@ -5,8 +5,9 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
+
+	"github.com/gfxv/scout/internal/database"
 )
 
 const pathsBufferSize = 200
@@ -33,6 +34,10 @@ func (s *SearchQueryResult) Rank() float32 {
 }
 
 type Indexer struct {
+	buffer    []database.DocumentData
+	batchSize int
+	db        *database.Database
+
 	diMu          *sync.Mutex
 	dfMu          *sync.Mutex
 	documentIndex DocIndex
@@ -40,7 +45,17 @@ type Indexer struct {
 }
 
 func NewIndexer() *Indexer {
+
+	db, err := database.NewDatabase("meta.db")
+	if err != nil {
+		panic(err)
+	}
+
 	return &Indexer{
+		buffer:    make([]database.DocumentData, 0),
+		batchSize: 50,
+		db:        db,
+
 		diMu:          &sync.Mutex{},
 		dfMu:          &sync.Mutex{},
 		documentIndex: make(DocIndex),
@@ -49,33 +64,8 @@ func NewIndexer() *Indexer {
 }
 
 func (i *Indexer) SearchQuery(query string) []SearchQueryResult {
-	result := make([]SearchQueryResult, 0)
-	tokenizer := NewTokenizer([]rune(query))
-	tokens := make([]string, 0)
 
-	for {
-		token, ok := tokenizer.NextToken()
-		if !ok {
-			break
-		}
-		tokens = append(tokens, token)
-	}
-
-	for path, docInfo := range i.documentIndex {
-		rank := float32(0)
-		for _, token := range tokens {
-			tf := i.tf(token, docInfo)
-			idf := i.idf(token)
-			rank += tf * idf
-		}
-		result = append(result, SearchQueryResult{path, rank})
-	}
-
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].rank > result[j].rank
-	})
-
-	return result
+	return nil
 }
 
 func (i *Indexer) IndexDir(path string) error {
@@ -95,6 +85,8 @@ func (i *Indexer) IndexDir(path string) error {
 	}
 	wg.Wait()
 
+	i.Flush()
+
 	return nil
 }
 
@@ -102,8 +94,7 @@ func (i *Indexer) IndexFile(path string) error {
 	fmt.Printf("Indexing %s...\n", path)
 
 	// TODO:
-	// - support other file types (pdf, html, doc?, ...)
-	// - may be change switch-case to map ?
+	// - may be change switch-case to map ? (command pattern)
 	var content []rune
 	var err error
 	switch filepath.Ext(path) {
@@ -124,39 +115,34 @@ func (i *Indexer) IndexFile(path string) error {
 		return err
 	}
 
-	i.diMu.Lock()
-	if _, ok := i.documentIndex[path]; ok {
-		i.RemoveFile(path)
-	}
-	i.diMu.Unlock()
-
 	tokenizer := NewTokenizer(content)
-
-	docInfo := DocInfo{
-		Terms:      make(TermFreq),
-		TotalTerms: 0,
-	}
-
+	terms := make([]string, 0)
 	for {
 		token, ok := tokenizer.NextToken()
 		if !ok {
 			break
 		}
-
-		docInfo.Terms[token]++
-		docInfo.TotalTerms++
-
-		if docInfo.Terms[token] == 1 {
-			i.dfMu.Lock()
-			i.docFrequency[token]++
-			i.dfMu.Unlock()
-		}
+		terms = append(terms, token)
 	}
 
-	i.diMu.Lock()
-	i.documentIndex[path] = docInfo
-	i.diMu.Unlock()
+	i.buffer = append(i.buffer, database.DocumentData{Path: path, Terms: terms})
+	if len(i.buffer) >= i.batchSize {
+		if err := i.db.AddDocuments(i.buffer); err != nil {
+			fmt.Printf("failed to add documents, err: %v", err)
+		}
+		i.buffer = nil
+	}
 	return nil
+}
+
+// Flush processes any remaining documents in the buffer
+func (i *Indexer) Flush() {
+	if len(i.buffer) > 0 {
+		if err := i.db.AddDocuments(i.buffer); err != nil {
+			fmt.Printf("failed to add documents, err: %v", err)
+		}
+		i.buffer = nil
+	}
 }
 
 func (i *Indexer) RemoveFile(path string) error {
@@ -223,6 +209,19 @@ func (i *Indexer) idf(token string) float32 {
 	}
 	docsWithTerm := i.docFrequency[token]
 	return float32(math.Log(float64(totalDocs+1) / float64(docsWithTerm+1)))
+}
+
+func tokenizeQuery(query string) []string {
+	tokenizer := NewTokenizer([]rune(query))
+	tokens := make([]string, 0)
+	for {
+		token, ok := tokenizer.NextToken()
+		if !ok {
+			break
+		}
+		tokens = append(tokens, token)
+	}
+	return tokens
 }
 
 func (i *Indexer) prettyPrint() {
