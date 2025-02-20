@@ -8,30 +8,11 @@ import (
 	"sync"
 
 	"github.com/gfxv/scout/internal/database"
+	"github.com/gfxv/scout/internal/models"
 )
 
 const pathsBufferSize = 200
 const numIndexWorkers = 10
-
-type TermFreq map[string]uint
-type DocInfo struct {
-	Terms      TermFreq
-	TotalTerms uint
-}
-type DocIndex map[string]DocInfo
-
-type SearchQueryResult struct {
-	path string
-	rank float32
-}
-
-func (s *SearchQueryResult) Path() string {
-	return s.path
-}
-
-func (s *SearchQueryResult) Rank() float32 {
-	return s.rank
-}
 
 type Indexer struct {
 	buffer    []database.DocumentData
@@ -40,8 +21,8 @@ type Indexer struct {
 
 	diMu          *sync.Mutex
 	dfMu          *sync.Mutex
-	documentIndex DocIndex
-	docFrequency  TermFreq
+	documentIndex models.DocIndex
+	docFrequency  models.TermFreq
 }
 
 func NewIndexer() *Indexer {
@@ -58,13 +39,17 @@ func NewIndexer() *Indexer {
 
 		diMu:          &sync.Mutex{},
 		dfMu:          &sync.Mutex{},
-		documentIndex: make(DocIndex),
-		docFrequency:  make(TermFreq),
+		documentIndex: make(models.DocIndex),
+		docFrequency:  make(models.TermFreq),
 	}
 }
 
-func (i *Indexer) SearchQuery(query string) []SearchQueryResult {
+func (i *Indexer) SearchQuery(query string) []models.SearchQueryResult {
 
+	return nil
+}
+
+func (i *Indexer) Load() error {
 	return nil
 }
 
@@ -84,9 +69,7 @@ func (i *Indexer) IndexDir(path string) error {
 		}(i)
 	}
 	wg.Wait()
-
 	i.Flush()
-
 	return nil
 }
 
@@ -194,7 +177,7 @@ func collectFiles(root string, out chan<- string) error {
 	return nil
 }
 
-func (i *Indexer) tf(token string, docInfo DocInfo) float32 {
+func (i *Indexer) tf(token string, docInfo models.DocInfo) float32 {
 	if docInfo.TotalTerms == 0 {
 		return 0
 	}

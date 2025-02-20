@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gfxv/scout/internal/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -38,7 +39,7 @@ func NewDatabase(path string) (*Database, error) {
 		}
 	*/
 
-	if err := db.AutoMigrate(&Document{}, &Term{}, &DocumentTerm{}); err != nil {
+	if err := db.AutoMigrate(&models.Document{}, &models.Term{}, &models.DocumentTerm{}); err != nil {
 		return nil, fmt.Errorf("failed to create tables, err: %w", err)
 	}
 
@@ -59,15 +60,6 @@ func (d *Database) AddDocuments(docs []DocumentData) error {
 		fmt.Println(err)
 		return err
 	}
-
-	fmt.Println("documents:")
-	fmt.Println(documents)
-
-	fmt.Println("term freqs:")
-	fmt.Println(termFreqs)
-
-	fmt.Println("unique terms:")
-	fmt.Println(uniqueTerms)
 
 	// Insert documents
 	if err := d.insertDocuments(tx, documents); err != nil {
@@ -90,8 +82,10 @@ func (d *Database) AddDocuments(docs []DocumentData) error {
 	return tx.Commit().Error
 }
 
-func (d *Database) processDocuments(docs []DocumentData) ([]Document, []map[string]uint, map[string]uint, error) {
-	documents := make([]Document, 0)
+func (d *Database) LoadIndexData() {}
+
+func (d *Database) processDocuments(docs []DocumentData) ([]models.Document, []map[string]uint, map[string]uint, error) {
+	documents := make([]models.Document, 0)
 	termFreqs := make([]map[string]uint, len(docs))
 	uniqueTerms := make(map[string]uint)
 
@@ -101,7 +95,7 @@ func (d *Database) processDocuments(docs []DocumentData) ([]Document, []map[stri
 			tf[term]++
 		}
 		totalTerms := uint(len(docData.Terms))
-		documents = append(documents, Document{Path: docData.Path, TotalTerms: totalTerms})
+		documents = append(documents, models.Document{Path: docData.Path, TotalTerms: totalTerms})
 		termFreqs[i] = tf
 
 		for term := range tf {
@@ -112,7 +106,7 @@ func (d *Database) processDocuments(docs []DocumentData) ([]Document, []map[stri
 	return documents, termFreqs, uniqueTerms, nil
 }
 
-func (d *Database) insertDocuments(tx *gorm.DB, documents []Document) error {
+func (d *Database) insertDocuments(tx *gorm.DB, documents []models.Document) error {
 	return tx.Create(&documents).Error
 }
 
@@ -122,20 +116,20 @@ func (d *Database) handleTerms(tx *gorm.DB, uniqueTerms map[string]uint) error {
 		termKeys = append(termKeys, term)
 	}
 
-	var existingTerms []Term
+	var existingTerms []models.Term
 	if err := tx.Where("text IN ?", termKeys).Find(&existingTerms).Error; err != nil {
 		return err
 	}
 
-	existingTermMap := make(map[string]Term)
+	existingTermMap := make(map[string]models.Term)
 	for _, term := range existingTerms {
 		existingTermMap[term.Text] = term
 	}
 
-	var newTerms []Term
+	var newTerms []models.Term
 	for term, docCount := range uniqueTerms {
 		if _, exists := existingTermMap[term]; !exists {
-			newTerms = append(newTerms, Term{Text: term, DocCount: docCount})
+			newTerms = append(newTerms, models.Term{Text: term, DocCount: docCount})
 		}
 	}
 	if len(newTerms) > 0 {
@@ -154,8 +148,8 @@ func (d *Database) handleTerms(tx *gorm.DB, uniqueTerms map[string]uint) error {
 	return nil
 }
 
-func (d *Database) insertDocumentTerms(tx *gorm.DB, documents []Document, termFreqs []map[string]uint) error {
-	var allTerms []Term
+func (d *Database) insertDocumentTerms(tx *gorm.DB, documents []models.Document, termFreqs []map[string]uint) error {
+	var allTerms []models.Term
 	if err := tx.Find(&allTerms).Error; err != nil {
 		return err
 	}
@@ -164,12 +158,12 @@ func (d *Database) insertDocumentTerms(tx *gorm.DB, documents []Document, termFr
 		termTextToID[term.Text] = term.ID
 	}
 
-	var documentTerms []DocumentTerm
+	var documentTerms []models.DocumentTerm
 	for i, doc := range documents {
 		tf := termFreqs[i]
 		for term, count := range tf {
 			termID := termTextToID[term]
-			documentTerms = append(documentTerms, DocumentTerm{
+			documentTerms = append(documentTerms, models.DocumentTerm{
 				DocumentID: doc.ID,
 				TermID:     termID,
 				Count:      count,
@@ -185,7 +179,7 @@ func (d *Database) insertDocumentTerms(tx *gorm.DB, documents []Document, termFr
 
 func (d *Database) GetTotalDocuments() (int64, error) {
 	var count int64
-	err := d.db.Model(&Document{}).Count(&count).Error
+	err := d.db.Model(&models.Document{}).Count(&count).Error
 	return count, err
 }
 
