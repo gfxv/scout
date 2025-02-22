@@ -1,7 +1,7 @@
 package views
 
 import "fmt"
-import "github.com/gfxv/scout/internal/engine"
+import "github.com/gfxv/scout/internal/models"
 
 templ IndexPage() {
 	<html lang="en">
@@ -44,7 +44,7 @@ templ IndexPage() {
 	</html>
 }
 
-templ SearchResults(results []engine.SearchQueryResult) {
+templ SearchResults(results []models.SearchQueryResult) {
 	<div class="space-y-3">
 		if len(results) == 0 {
 			<div class="p-4 bg-white rounded-lg shadow-md text-gray-600">
