@@ -24,7 +24,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	indexer := engine.NewIndexer()
+	indexer := engine.NewIndexer(cfg.DBPath)
 	var err error
 	switch {
 	case cfg.Index:
