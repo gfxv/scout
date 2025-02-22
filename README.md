@@ -15,18 +15,35 @@ To build **Scout** from source:
 4) In the `scout` directory run `task` or `task build`, which will result in a binary file named `scout`.
 
 ## Usage
-Follow these steps to set up and use **Scout**:
-1) Prepare the `files` Directory
-- Create a directory named `files` near binary executable `scout`.
-- Place the documents you want to index inside this directory.
-- Supported file types: `.md`, `.txt`, `.pdf`, `.xml`, `.html`, `.xhtml`.
-2) Run **Scout**
-- Run the binary executable like so `./scout`
-- After, the indexing process should begin
-3) Use **Scout** 
-- When **Scout** finish indexing files, you will be able to access the web interface.
-- Open your web browser and navigate to http://localhost:6969
-4) Search Your Documents
-- Enter your query in the search bar and press `Enter` or Search button.
-- The results will display relevant documents from the `files` directory.
+### Command-Line Flags
+| Flag | Type | Default | Description |
+| ---- | ---- | ------- | ----------- |
+| `-index` | `bool` | `false` | Index files in the specified directory and exit (`-files` flag required). |
+| `-serve` | `bool` | `false` | Start the web server. |
+| `-files` | `string` | *empty string* | Directory path containing files to index (required with `-index`). |
+| `-port` | `string` | `"6969"` | Port to listen on when serving (e.g., 8080). |
+| `-db` | `string` | `"search.db"` | Path to the SQLite database file used to store the search index. |
+
+**Note:**
+- Either `-index` or `-serve` must be specified.
+- `-index` and `-serve` cannot be used together.
+- When using `-index`, the `-files` flag is required.
+
+### Using Scout
+1) Prepare your documents
+    - Create a directory (e.g., `docs`) and place the documents you want to index inside it.
+    - Supported file types: `.md`, `.txt`, `.pdf`, `.xml`, `.html`, `.xhtml`.
+    - Ensure the directory is accessible from where you run **Scout**.
+2) Index the documents
+    - Run Scout with the -index flag and specify the directory using -files:
+    ```bash
+    scout -index -files ./docs
+    ```
+    - This builds a search index in the SQLite database (default: `meta.db`).
+3) Start the Web Server
+    - Launch the web interface with the `-serve` flag:
+    ```bash
+    scout -serve
+    ```
+    - Access it by opening your browser to http://localhost:6969.
 
