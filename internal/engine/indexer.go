@@ -26,8 +26,8 @@ type Indexer struct {
 	docFrequency  models.TermFreq
 }
 
-func NewIndexer() *Indexer {
-	db, err := database.NewDatabase("meta.db")
+func NewIndexer(dbPath string) *Indexer {
+	db, err := database.NewDatabase(dbPath)
 	if err != nil {
 		panic(err)
 	}
