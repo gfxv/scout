@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   app:
     build:
@@ -9,3 +7,11 @@ services:
       - "6969:6969"
     volumes:
       - ./files:/app/files
+      - ./db:/app/db
+    environment:
+      - SCOUT_SERVE=false
+      - SCOUT_INDEX=false
+      - SCOUT_PORT=6969
+      - SCOUT_DB_PATH=/app/db/meta.db
+      - SCOUT_FILES=/app/files
+    restart: unless-stopped
