@@ -16,13 +16,13 @@ To build **Scout** from source:
 
 ## Usage
 ### Command-Line Flags
-| Flag | Type | Default | Description |
-| ---- | ---- | ------- | ----------- |
-| `-index` | `bool` | `false` | Index files in the specified directory and exit (`-files` flag required). |
-| `-serve` | `bool` | `false` | Start the web server. |
-| `-files` | `string` | *empty string* | Directory path containing files to index (required with `-index`). |
-| `-port` | `string` | `"6969"` | Port to listen on when serving (e.g., 8080). |
-| `-db` | `string` | `"search.db"` | Path to the SQLite database file used to store the search index. |
+| Flag | Environment  | Type | Default | Description |
+| ---- | ------------ | ---- | ------- | ----------- |
+| `-index` | `SCOUT_INDEX`   | `bool`   | `false`        | Index files in the specified directory and exit (`-files` flag required). |
+| `-serve` | `SCOUT_SERVE`   | `bool`   | `false`        | Start the web server. |
+| `-files` | `SCOUT_FILES`   | `string` | *empty string* | Directory path containing files to index (required with `-index`). |
+| `-port`  | `SCOUT_PORT`    | `string` | `"6969"`       | Port to listen on when serving (e.g., 8080). |
+| `-db`    | `SCOUT_DB_PATH` | `string` | `"search.db"`  | Path to the SQLite database file used to store the search index. |
 
 **Note:**
 - Either `-index` or `-serve` must be specified.
